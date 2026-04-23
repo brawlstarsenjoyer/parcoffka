@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Barista Terminal</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  :root{
+    --bg:#0f0f0f;--surface:#1a1a1a;--surface2:#242424;--surface3:#2e2e2e;--border:#2a2a2a;
+    --text:#f0ede8;--muted:#666;--muted2:#888;--gold:#d4a853;--gold-dark:#b8892e;--gold-light:#e8c070;
+    --red:#ef4444;--red-dark:#7f1d1d;--green:#22c55e;--blue:#3b82f6;
+  }
+  body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;}
+  button{font-family:'Manrope',sans-serif;cursor:pointer;}
+  input,textarea,select{font-family:'Manrope',sans-serif;outline:none;}
+
+  /* HEADER */
+  #header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;}
+  #header-title{flex:1;}
+  #header-title h1{font-size:18px;font-weight:800;letter-spacing:-0.5px;}
+  #header-title p{font-size:11px;color:var(--muted);margin-top:2px;}
+  #revenue-badge{background:var(--surface2);border-radius:10px;padding:6px 14px;font-size:15px;font-weight:700;color:var(--gold);white-space:nowrap;transition:transform 0.15s;}
+  #revenue-badge.bump{transform:scale(1.15);}
+
+  /* TOAST */
+  #toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-80px);background:#14532d;color:#fff;border-radius:12px;padding:10px 22px;font-weight:700;font-size:15px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.5);transition:transform 0.3s ease;white-space:nowrap;pointer-events:none;}
+  #toast.show{transform:translateX(-50%) translateY(0);}
+  #toast.error{background:#7f1d1d;}
+  #toast.info{background:#1e3a5f;}
+  #toast.warn{background:#78350f;}
+
+  /* TAB BAR */
+  #tabbar{position:fixed;bottom:0;left:0;right:0;z-index:200;background:#111;border-top:1px solid var(--border);display:flex;height:64px;}
+  .tab-btn{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;position:relative;}
+  .tab-btn .tab-icon{font-size:20px;}
+  .tab-btn .tab-label{font-size:10px;font-weight:700;color:var(--muted);transition:color 0.15s;}
+  .tab-btn.active .tab-label{color:var(--gold);}
+  .tab-btn.active::after{content:'';position:absolute;bottom:0;width:40px;height:3px;background:var(--gold);border-radius:3px 3px 0 0;}
+
+  /* VIEWS */
+  .view{display:none;flex:1;flex-direction:column;padding-bottom:64px;}
+  .view.active{display:flex;}
+
+  /* ===== POS VIEW ===== */
+  #search-wrap{padding:12px 16px 0;}
+  #search{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 14px;color:var(--text);font-size:15px;transition:border-color 0.2s;}
+  #search:focus{border-color:var(--gold);}
+  #search::placeholder{color:var(--muted);}
+  #group-tabs{display:flex;gap:8px;padding:12px 16px;overflow-x:auto;scrollbar-width:none;}
+  #group-tabs::-webkit-scrollbar{display:none;}
+  .group-tab{flex-shrink:0;border-radius:20px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--muted);white-space:nowrap;transition:all 0.15s;}
+  .group-tab.active{color:#fff;border-color:transparent;}
+  #products{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px;overflow-y:auto;flex:1;}
+  .product-btn{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 12px;cursor:pointer;text-align:left;transition:all 0.15s;position:relative;}
+  .product-btn.selected{border-color:transparent;transform:scale(0.97);}
+  .product-btn .p-name{font-size:13px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:6px;}
+  .product-btn.selected .p-name{color:#fff;}
+  .product-btn .p-price{font-size:16px;font-weight:900;color:var(--gold);}
+  .product-btn.selected .p-price{color:#fff;}
+  .product-btn .p-unit{font-size:11px;font-weight:600;opacity:0.8;}
+  .product-btn .p-sold{position:absolute;top:8px;right:8px;background:rgba(212,168,83,0.2);color:var(--gold);border-radius:8px;font-size:10px;font-weight:800;padding:2px 6px;}
+
+  /* ADD BAR */
+  #add-bar{background:var(--surface);border-top:1px solid var(--border);padding:16px;position:sticky;bottom:64px;display:none;animation:slideUp 0.2s ease;}
+  @keyframes slideUp{from{transform:translateY(20px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  #add-bar.show{display:block;}
+  #add-bar-name{font-size:13px;color:var(--muted);margin-bottom:8px;}
+  #add-bar-name b{color:var(--text);}
+  #add-bar-controls{display:flex;gap:10px;align-items:center;}
+  .qty-btn{background:var(--surface2);color:var(--text);border:none;border-radius:10px;width:48px;height:48px;font-size:22px;font-weight:700;transition:background 0.1s;active:background:#3a3a3a;}
+  #qty-input{flex:1;background:var(--surface2);border:none;border-radius:10px;padding:10px;color:var(--text);font-size:20px;font-weight:800;text-align:center;}
+  #confirm-btn{background:var(--gold);color:#0f0f0f;border:none;border-radius:12px;padding:0 20px;height:48px;font-size:15px;font-weight:900;white-space:nowrap;transition:transform 0.1s,background 0.1s;}
+  #confirm-btn:active{transform:scale(0.95);background:var(--gold-dark);}
+
+  /* ===== REPORT VIEW ===== */
+  #report-view{overflow-y:auto;}
+  .report-header{font-size:18px;font-weight:800;margin-bottom:4px;}
+  .report-subheader{font-size:13px;color:var(--muted);margin-bottom:16px;}
+  #report-inner{padding:16px;}
+
+  /* DAY SELECTOR */
+  #day-selector{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;}
+  #day-selector::-webkit-scrollbar{display:none;}
+  .day-tab{flex-shrink:0;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--muted);white-space:nowrap;transition:all 0.15s;}
+  .day-tab.active{background:var(--gold);color:#0f0f0f;border-color:var(--gold);}
+
+  .sale-row{background:var(--surface);border-radius:12px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:8px;animation:fadeIn 0.2s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  .sale-row .s-info{flex:1;}
+  .sale-row .s-name{font-weight:700;font-size:14px;}
+  .sale-row .s-price{font-size:12px;color:var(--muted);margin-top:2px;}
+  .sale-row .s-total{text-align:right;}
+  .sale-row .s-total-amount{font-weight:800;font-size:15px;color:var(--gold);}
+  .sale-row .s-qty{font-size:12px;color:var(--muted);}
+  .sale-row .s-edit-btns{display:flex;flex-direction:column;gap:4px;}
+  .s-minus,.s-delete{border:none;border-radius:8px;width:32px;height:28px;font-size:14px;font-weight:700;cursor:pointer;}
+  .s-minus{background:var(--surface2);color:var(--text);}
+  .s-delete{background:#3a1a1a;color:var(--red);}
+  #total-bar{background:var(--gold);border-radius:14px;padding:14px 18px;margin-top:12px;display:flex;justify-content:space-between;align-items:center;}
+  #total-bar span:first-child{font-weight:800;color:#0f0f0f;font-size:16px;}
+  #total-amount{font-weight:900;color:#0f0f0f;font-size:22px;}
+  #report-actions{display:flex;gap:10px;margin-top:12px;}
+  #send-btn{flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:13px;font-size:14px;font-weight:700;}
+  #clear-btn{background:var(--surface2);color:var(--red);border:1px solid #3a1a1a;border-radius:12px;padding:13px 16px;font-size:14px;font-weight:700;}
+  #clear-btn.confirm{background:#7f1d1d;color:#fff;border-color:#7f1d1d;font-size:13px;}
+  #empty-msg{color:var(--muted);text-align:center;margin-top:60px;font-size:15px;}
+
+  /* History chart mini */
+  .history-section{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
+  .history-title{font-size:13px;font-weight:700;color:var(--muted2);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;}
+  .history-bars{display:flex;gap:8px;align-items:flex-end;height:60px;}
+  .h-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .h-bar{width:100%;background:var(--surface2);border-radius:4px 4px 0 0;transition:height 0.4s ease;min-height:3px;position:relative;cursor:pointer;}
+  .h-bar.today{background:var(--gold);}
+  .h-bar-label{font-size:9px;color:var(--muted);font-weight:700;}
+  .h-bar-amt{font-size:9px;color:var(--muted2);font-weight:600;}
+
+  /* ===== CATALOG VIEW ===== */
+  #catalog-view{padding:16px;overflow-y:auto;}
+  .catalog-title{font-size:18px;font-weight:800;margin-bottom:16px;}
+  .catalog-add-form{background:var(--surface);border-radius:14px;padding:16px;margin-bottom:20px;border:1px solid var(--border);}
+  .catalog-add-form h3{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--gold);}
+  .form-row{display:flex;gap:8px;margin-bottom:10px;}
+  .form-row input,.form-row select{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:14px;}
+  .form-row input:focus,.form-row select:focus{border-color:var(--gold);}
+  .form-row select option{background:var(--surface2);}
+  .catalog-save-btn{width:100%;background:var(--gold);color:#0f0f0f;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:800;}
+  .catalog-group{margin-bottom:20px;}
+  .catalog-group-title{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .catalog-item{background:var(--surface);border-radius:10px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:8px;border:1px solid var(--border);}
+  .catalog-item.editing{border-color:var(--gold);}
+  .catalog-item .ci-name{flex:1;font-size:13px;font-weight:700;}
+  .catalog-item .ci-price{font-size:13px;font-weight:800;color:var(--gold);margin-right:8px;}
+  .ci-edit-btn,.ci-del-btn{border:none;border-radius:8px;width:30px;height:30px;font-size:13px;cursor:pointer;}
+  .ci-edit-btn{background:var(--surface2);color:var(--text);}
+  .ci-del-btn{background:#3a1a1a;color:var(--red);}
+  .ci-edit-inputs{display:none;width:100%;flex-direction:column;gap:6px;margin-top:8px;}
+  .catalog-item.editing .ci-edit-inputs{display:flex;}
+  .ci-edit-inputs input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;width:100%;}
+  .ci-edit-inputs input:focus{border-color:var(--gold);}
+  .ci-save-btn{background:var(--gold);color:#0f0f0f;border:none;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:800;align-self:flex-end;}
+
+  /* ===== SETTINGS VIEW ===== */
+  #settings-view{padding:20px;overflow-y:auto;}
+  .settings-title{font-size:18px;font-weight:800;margin-bottom:20px;}
+  .settings-label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px;}
+  .settings-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;margin-bottom:16px;transition:border-color 0.2s;}
+  .settings-input:focus{border-color:var(--gold);}
+  .settings-hint{font-size:12px;color:#444;margin-bottom:20px;line-height:1.6;}
+  .btn-gold{width:100%;background:var(--gold);color:#0f0f0f;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:800;margin-bottom:12px;transition:background 0.15s;}
+  .btn-gold:active{background:var(--gold-dark);}
+  .btn-dark{width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-bottom:12px;}
+  .btn-outline{width:100%;background:var(--surface);color:var(--gold);border:1px solid var(--border);border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-bottom:12px;}
+  .next-report{background:var(--surface);border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--muted);}
+  .next-report b{color:var(--text);}
+  .settings-section{font-size:13px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:0.5px;margin:20px 0 12px;}
+  .export-row{display:flex;gap:8px;margin-bottom:12px;}
+  .export-row button{flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px;font-size:13px;font-weight:700;}
+
+  /* MODAL */
+  #modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;}
+  #modal-overlay.show{display:flex;}
+  #modal-box{background:var(--surface);border-radius:18px;padding:24px;width:100%;max-width:340px;border:1px solid var(--border);}
+  #modal-box h3{font-size:16px;font-weight:800;margin-bottom:12px;}
+  #modal-box p{font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.5;}
+  .modal-actions{display:flex;gap:10px;}
+  .modal-cancel{flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;font-weight:700;}
+  .modal-confirm{flex:1;background:var(--red);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;}
+
+  /* Scrollbar */
+  ::-webkit-scrollbar{width:4px;height:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div id="header-title">
+    <h1>☕ Barista Terminal</h1>
+    <p id="date-label"></p>
+  </div>
+  <div id="revenue-badge">0 MDL</div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <h3 id="modal-title">Подтвердите действие</h3>
+    <p id="modal-msg"></p>
+    <div class="modal-actions">
+      <button class="modal-cancel" id="modal-cancel">Отмена</button>
+      <button class="modal-confirm" id="modal-confirm">Удалить</button>
+    </div>
+  </div>
+</div>
+
+<!-- POS VIEW -->
+<div class="view active" id="pos-view">
+  <div id="search-wrap">
+    <input id="search" type="text" placeholder="🔍 Поиск товара..."/>
+  </div>
+  <div id="group-tabs"></div>
+  <div id="products"></div>
+  <div id="add-bar">
+    <div id="add-bar-name"></div>
+    <div id="add-bar-controls">
+      <button class="qty-btn" id="qty-minus">−</button>
+      <input id="qty-input" type="number" min="1" value="1"/>
+      <button class="qty-btn" id="qty-plus">+</button>
+      <button id="confirm-btn">+ 0 MDL</button>
+    </div>
+  </div>
+</div>
+
+<!-- REPORT VIEW -->
+<div class="view" id="report-view">
+  <div id="report-inner">
+    <div class="report-header">📊 Продажи</div>
+    <div class="report-subheader" id="report-sub"></div>
+    <div id="day-selector"></div>
+    <div id="sales-list"></div>
+    <div id="empty-msg" style="display:none">Продаж пока нет</div>
+    <div id="total-bar" style="display:none">
+      <span>ИТОГО</span>
+      <span id="total-amount">0 MDL</span>
+    </div>
+    <div id="report-actions" style="display:none">
+      <button id="send-btn">📤 Telegram</button>
+      <button id="clear-btn">🗑</button>
+    </div>
+    <div class="history-section">
+      <div class="history-title">История выручки</div>
+      <div class="history-bars" id="history-bars"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CATALOG VIEW -->
+<div class="view" id="catalog-view">
+  <div class="catalog-title">📦 Каталог товаров</div>
+  <div class="catalog-add-form">
+    <h3>+ Новый товар</h3>
+    <div class="form-row">
+      <input id="new-name" type="text" placeholder="Название"/>
+    </div>
+    <div class="form-row">
+      <input id="new-price" type="number" placeholder="Цена MDL" min="1"/>
+      <select id="new-group"></select>
+    </div>
+    <button class="catalog-save-btn" id="add-product-btn">Добавить товар</button>
+  </div>
+  <div id="catalog-list"></div>
+</div>
+
+<!-- SETTINGS VIEW -->
+<div class="view" id="settings-view">
+  <div class="settings-title">⚙️ Настройки</div>
+  <div class="next-report" id="next-report-info"></div>
+  <div class="settings-section">Telegram</div>
+  <label class="settings-label">Bot Token</label>
+  <input class="settings-input" id="bot-token" type="text" placeholder="1234567890:ABCdef..."/>
+  <label class="settings-label">Chat ID</label>
+  <input class="settings-input" id="chat-id" type="text" placeholder="-100123456789"/>
+  <div class="settings-hint">
+    Отчёты отправляются каждые 2 часа и итог в 22:00.<br/>
+    Создай бота через @BotFather, добавь в группу, получи Chat ID через @getidsbot.
+  </div>
+  <button class="btn-gold" id="save-btn">Сохранить настройки</button>
+  <button class="btn-dark" id="send-now-btn">📤 Отправить отчёт сейчас</button>
+
+  <div class="settings-section">Данные</div>
+  <div class="export-row">
+    <button id="export-json-btn">⬇ Экспорт JSON</button>
+    <button id="export-csv-btn">⬇ Экспорт CSV</button>
+  </div>
+  <button class="btn-outline" id="go-pos-btn">🛒 Перейти к кассе</button>
+</div>
+
+<!-- TAB BAR -->
+<div id="tabbar">
+  <button class="tab-btn active" data-view="pos-view">
+    <span class="tab-icon">🛒</span>
+    <span class="tab-label">Касса</span>
+  </button>
+  <button class="tab-btn" data-view="report-view">
+    <span class="tab-icon">📊</span>
+    <span class="tab-label">Продажи</span>
+  </button>
+  <button class="tab-btn" data-view="catalog-view">
+    <span class="tab-icon">📦</span>
+    <span class="tab-label">Каталог</span>
+  </button>
+  <button class="tab-btn" data-view="settings-view">
+    <span class="tab-icon">⚙️</span>
+    <span class="tab-label">Настройки</span>
+  </button>
+</div>
+
+<script>
+// ==================== DEFAULT PRODUCTS ====================
+const DEFAULT_PRODUCTS = [
+  {id:1,name:"Espresso",price:23,group:"Coffee"},
+  {id:2,name:"Espresso decaff",price:25,group:"Coffee"},
+  {id:3,name:"Doppio (double espresso)",price:36,group:"Coffee"},
+  {id:4,name:"Americano",price:23,group:"Coffee"},
+  {id:5,name:"Americano decaff",price:25,group:"Coffee"},
+  {id:6,name:"Cappuccino",price:28,group:"Coffee"},
+  {id:7,name:"Cappuccino decaffeinated",price:30,group:"Coffee"},
+  {id:8,name:"Cappuccino vegan",price:30,group:"Coffee"},
+  {id:9,name:"Double cappuccino",price:40,group:"Coffee"},
+  {id:10,name:"Double espresso decaffeinated",price:42,group:"Coffee"},
+  {id:11,name:"Double cappuccino vegan",price:42,group:"Coffee"},
+  {id:12,name:"Flat White",price:37,group:"Coffee"},
+  {id:13,name:"Flat White decaffeinated",price:39,group:"Coffee"},
+  {id:14,name:"Flat white vegan",price:40,group:"Coffee"},
+  {id:15,name:"Latte",price:33,group:"Coffee"},
+  {id:16,name:"Latte decaffeinated",price:35,group:"Coffee"},
+  {id:17,name:"Latte vegan",price:37,group:"Coffee"},
+  {id:18,name:"Ice latte",price:40,group:"Coffee"},
+  {id:19,name:"Ice latte decaffeinated",price:42,group:"Coffee"},
+  {id:20,name:"Ice latte vegan",price:45,group:"Coffee"},
+  {id:21,name:"Espresso tonic",price:35,group:"Coffee"},
+  {id:22,name:"Espresso tonic decaff",price:35,group:"Coffee"},
+  {id:23,name:"Bumblebee",price:35,group:"Coffee"},
+  {id:84,name:"Double Americano",price:36,group:"Coffee"},
+  {id:103,name:"Berry RAF",price:40,group:"Coffee"},
+  {id:26,name:"Tea ronnefeldt",price:25,group:"No coffee"},
+  {id:27,name:"Lemonade",price:45,group:"No coffee"},
+  {id:77,name:"Cacao",price:30,group:"No coffee"},
+  {id:78,name:"Hot chocolate",price:30,group:"No coffee"},
+  {id:79,name:"Mojito",price:35,group:"No coffee"},
+  {id:80,name:"Fresh",price:35,group:"No coffee"},
+  {id:86,name:"Ceai Jam",price:30,group:"No coffee"},
+  {id:100,name:"Chocolate Truffle",price:40,group:"No coffee"},
+  {id:101,name:"Sakura Latte",price:40,group:"No coffee"},
+  {id:102,name:"Matcha Latte",price:40,group:"No coffee"},
+  {id:104,name:"Cacao Banana",price:38,group:"No coffee"},
+  {id:105,name:"Masala Tea Latte",price:40,group:"No coffee"},
+  {id:106,name:"Cheese & Orange Latte",price:40,group:"No coffee"},
+  {id:137,name:"Tea dolce",price:20,group:"No coffee"},
+  {id:28,name:"Cappy 0.2",price:15,group:"Water"},
+  {id:29,name:"Coca Cola 0.25",price:18,group:"Water"},
+  {id:30,name:"Fanta Portocale 0.25",price:18,group:"Water"},
+  {id:31,name:"Sprite 0.25",price:18,group:"Water"},
+  {id:32,name:"Coca Cola Zero 0.25",price:18,group:"Water"},
+  {id:33,name:"Dorna Carbo 0.33",price:23,group:"Water"},
+  {id:34,name:"Dorna Plata 0.33",price:23,group:"Water"},
+  {id:35,name:"TYMBARK",price:25,group:"Water"},
+  {id:39,name:"Beypazari (Minerala) 0.2",price:10,group:"Water"},
+  {id:40,name:"Beypazari 0.2",price:12,group:"Water"},
+  {id:99,name:"Bubble tea 0.33l",price:49,group:"Water"},
+  {id:109,name:"Băutură ZEN 0.3L",price:40,group:"Water"},
+  {id:123,name:"Băutură spumoasă OKF 0.33l",price:25,group:"Water"},
+  {id:135,name:"Suc campa",price:25,group:"Water"},
+  {id:136,name:"Schweppes",price:20,group:"Water"},
+  {id:138,name:"Dorna kids 0.33",price:18,group:"Water"},
+  {id:43,name:"Placinta cu branza 150g",price:18,group:"Pastries"},
+  {id:44,name:"Placinta cu cartofi 150g",price:14,group:"Pastries"},
+  {id:45,name:"Placinta cu carne 150g",price:19,group:"Pastries"},
+  {id:46,name:"Placinta cu varza 150g",price:14,group:"Pastries"},
+  {id:47,name:"Placinta cu visina 150g",price:16,group:"Pastries"},
+  {id:48,name:"Mini Rollini cu capsuna 50g",price:6,group:"Pastries"},
+  {id:49,name:"Saralii cu dovleac",price:12,group:"Pastries"},
+  {id:50,name:"Mini foietaj cu carne 40g",price:8,group:"Pastries"},
+  {id:51,name:"Mini Rollini cu portocala 40g",price:6,group:"Pastries"},
+  {id:82,name:"Mini foietaj cu ciocolata 50gr",price:8,group:"Pastries"},
+  {id:87,name:"Placinta cu mar 150gr",price:15,group:"Pastries"},
+  {id:88,name:"Placinta cu sunca si cascaval",price:16,group:"Pastries"},
+  {id:94,name:"Placinta cu capsuna 100gr",price:12,group:"Pastries"},
+  {id:97,name:"Mini foietaj cu cascaval 50gr",price:8,group:"Pastries"},
+  {id:98,name:"Mini rollini cu visina 60gr",price:8,group:"Pastries"},
+  {id:112,name:"Croissant",price:16,group:"Pastries"},
+  {id:115,name:"Mini rollini cu halva",price:7,group:"Pastries"},
+  {id:122,name:"Mini foietaj cu mac",price:7,group:"Pastries"},
+  {id:124,name:"Mini foietaj cu brinza dulce",price:7,group:"Pastries"},
+  {id:128,name:"Crenvurști în aluat",price:16,group:"Pastries"},
+  {id:130,name:"Placinta cu cascaval 100gr",price:14,group:"Pastries"},
+  {id:131,name:"Plăcintă cu brânză de oi",price:20,group:"Pastries"},
+  {id:89,name:"Donut",price:18,group:"Chocolate"},
+  {id:90,name:"Chocolate Heidi Dark 27g",price:30,group:"Chocolate"},
+  {id:91,name:"Chocolate Heidi Milk 37g",price:25,group:"Chocolate"},
+  {id:92,name:"Heidi biscuit 55g",price:25,group:"Chocolate"},
+  {id:93,name:"Chocolate Cherry 100g",price:80,group:"Chocolate"},
+  {id:95,name:"Cookie 70gr",price:25,group:"Chocolate"},
+  {id:110,name:"Space bite protein bar 45gr",price:70,group:"Chocolate"},
+  {id:111,name:"Dubai chocolate mini",price:12,group:"Chocolate"},
+  {id:113,name:"Heidi chocolate 80g",price:55,group:"Chocolate"},
+  {id:114,name:"Muffin",price:30,group:"Chocolate"},
+  {id:118,name:"Batoane Apifera",price:35,group:"Chocolate"},
+  {id:119,name:"Halva in glazura",price:10,group:"Chocolate"},
+  {id:120,name:"Donut pistachio",price:26,group:"Chocolate"},
+  {id:126,name:"Pistachio chocolate",price:15,group:"Chocolate"},
+  {id:129,name:"Nut&go",price:15,group:"Chocolate"},
+  {id:134,name:"Choco Milka",price:20,group:"Chocolate"},
+  {id:24,name:"Milk topping",price:5,group:"Toppings"},
+  {id:25,name:"Milk topping vegan",price:7,group:"Toppings"},
+  {id:59,name:"Sirop",price:5,group:"Toppings"},
+  {id:81,name:"Punga",price:2,group:"Toppings"},
+  {id:83,name:"Lemon",price:5,group:"Toppings"},
+  {id:85,name:"Frișcă",price:5,group:"Toppings"},
+  {id:107,name:"Cheesecake cu ciocolata",price:35,group:"Specials"},
+  {id:108,name:"Cheesecake cu zmeură",price:25,group:"Specials"},
+  {id:116,name:"Turtă Un lalea",price:50,group:"Specials"},
+  {id:117,name:"Turtă pisică",price:55,group:"Specials"},
+  {id:121,name:"Turtă inima mare",price:65,group:"Specials"},
+  {id:125,name:"Macarons",price:60,group:"Specials"},
+  {id:127,name:"Turtă pe bețișor",price:45,group:"Specials"},
+  {id:132,name:"Turtă iepuraș/buchet",price:65,group:"Specials"},
+  {id:133,name:"Set de turte",price:180,group:"Specials"},
+  {id:60,name:"Ceai magia trav",price:160,group:"Tea & Coffee Pack"},
+  {id:61,name:"Ceai skrab ceilonu",price:160,group:"Tea & Coffee Pack"},
+  {id:62,name:"Ceai fruktovaea nasoloda",price:160,group:"Tea & Coffee Pack"},
+  {id:63,name:"Ceai senca",price:160,group:"Tea & Coffee Pack"},
+  {id:64,name:"Ceai korolevskii jasmin",price:160,group:"Tea & Coffee Pack"},
+  {id:65,name:"Ceai grafgrey",price:160,group:"Tea & Coffee Pack"},
+  {id:66,name:"Cafea gustoforte",price:590,group:"Tea & Coffee Pack"},
+  {id:67,name:"Cafea supercrema",price:580,group:"Tea & Coffee Pack"},
+  {id:68,name:"Cafea Bar",price:610,group:"Tea & Coffee Pack"},
+  {id:69,name:"Cafea premiumgold",price:655,group:"Tea & Coffee Pack"},
+  {id:70,name:"Cafea Dorato Oro",price:565,group:"Tea & Coffee Pack"},
+  {id:71,name:"Cafea Dorato Oro 500g",price:315,group:"Tea & Coffee Pack"},
+  {id:72,name:"Cafea Dorato Elite",price:655,group:"Tea & Coffee Pack"},
+  {id:73,name:"Cafea Dorato Arabica 100%",price:685,group:"Tea & Coffee Pack"},
+  {id:74,name:"Cafea Dorato Arabica 500gr",price:375,group:"Tea & Coffee Pack"},
+  {id:75,name:"Cafea Dorato Classic",price:565,group:"Tea & Coffee Pack"},
+  {id:76,name:"Cafea NA Decafinato",price:550,group:"Tea & Coffee Pack"},
+];
+
+const GROUP_COLORS = {
+  "Coffee":"#6f4e37","No coffee":"#4a7c59","Water":"#2d6a9f",
+  "Pastries":"#b5651d","Chocolate":"#5c3d2e","Toppings":"#8b6914",
+  "Specials":"#7b3f7f","Tea & Coffee Pack":"#3a5a40"
+};
+const GROUP_ICONS = {
+  "Coffee":"☕","No coffee":"🍵","Water":"💧","Pastries":"🥐",
+  "Chocolate":"🍫","Toppings":"✨","Specials":"🎂","Tea & Coffee Pack":"📦"
+};
+
+// ==================== STATE ====================
+let PRODUCTS = [];
+let salesHistory = {}; // { "Mon Apr 22 2024": [{id,name,price,qty},...] }
+let settings = {botToken:'',chatId:''};
+let selectedProduct = null;
+let qty = 1;
+let activeGroup = 'Coffee';
+let viewingDay = new Date().toDateString();
+let modalCallback = null;
+let nextProductId = 10000;
+
+// ==================== STORAGE ====================
+function loadData(){
+  try {
+    // Products
+    const pc = localStorage.getItem('barista_products_v3');
+    PRODUCTS = pc ? JSON.parse(pc) : JSON.parse(JSON.stringify(DEFAULT_PRODUCTS));
+
+    // Sales history (multi-day)
+    const sh = localStorage.getItem('barista_history_v3');
+    if(sh) salesHistory = JSON.parse(sh);
+
+    // Settings
+    const cfg = localStorage.getItem('barista_cfg');
+    if(cfg) settings = JSON.parse(cfg);
+
+    // Next product id
+    const nid = localStorage.getItem('barista_next_id');
+    if(nid) nextProductId = parseInt(nid);
+
+    // Migrate old single-day data
+    const old = localStorage.getItem('barista_sales_v2');
+    if(old){
+      const d = JSON.parse(old);
+      if(d.date && d.sales && d.sales.length && !salesHistory[d.date]){
+        salesHistory[d.date] = d.sales;
+        saveSalesHistory();
+      }
+      localStorage.removeItem('barista_sales_v2');
+    }
+  } catch(e) {
+    PRODUCTS = JSON.parse(JSON.stringify(DEFAULT_PRODUCTS));
+  }
+}
+
+function saveSalesHistory(){
+  localStorage.setItem('barista_history_v3', JSON.stringify(salesHistory));
+}
+function saveProducts(){
+  localStorage.setItem('barista_products_v3', JSON.stringify(PRODUCTS));
+}
+function saveSettings(){
+  localStorage.setItem('barista_cfg', JSON.stringify(settings));
+}
+function saveNextId(){
+  localStorage.setItem('barista_next_id', String(nextProductId));
+}
+
+// ==================== TODAY'S SALES ====================
+function todaySales(){
+  const today = new Date().toDateString();
+  return salesHistory[today] || [];
+}
+function setTodaySales(arr){
+  const today = new Date().toDateString();
+  salesHistory[today] = arr;
+  saveSalesHistory();
+}
+function addSale(item){
+  const today = new Date().toDateString();
+  if(!salesHistory[today]) salesHistory[today] = [];
+  salesHistory[today].push(item);
+  saveSalesHistory();
+}
+
+// ==================== AGGREGATE ====================
+function getAgg(day){
+  const s = salesHistory[day] || [];
+  const m = {};
+  s.forEach(x => {
+    if(m[x.id]) m[x.id].qty += x.qty;
+    else m[x.id] = {...x};
+  });
+  return Object.values(m);
+}
+function getTotal(day){
+  return getAgg(day).reduce((s,x) => s + x.price * x.qty, 0);
+}
+
+// ==================== TOAST ====================
+let toastTimer;
+function showToast(msg, type='success'){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = type + ' show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 3000);
+}
+
+// ==================== MODAL ====================
+function showModal(title, msg, confirmText, cb){
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-msg').textContent = msg;
+  document.getElementById('modal-confirm').textContent = confirmText || 'Удалить';
+  document.getElementById('modal-overlay').classList.add('show');
+  modalCallback = cb;
+}
+document.getElementById('modal-cancel').onclick = () => {
+  document.getElementById('modal-overlay').classList.remove('show');
+  modalCallback = null;
+};
+document.getElementById('modal-confirm').onclick = () => {
+  document.getElementById('modal-overlay').classList.remove('show');
+  if(modalCallback) modalCallback();
+  modalCallback = null;
+};
+
+// ==================== TELEGRAM ====================
+function formatReport(label, day){
+  const agg = getAgg(day || viewingDay);
+  if(!agg.length) return label + '\n\nПродаж нет.';
+  const total = getTotal(day || viewingDay);
+  const lines = agg.map(s => `• ${s.name} × ${s.qty} = ${s.price * s.qty} MDL`).join('\n');
+  return `${label}\n\n${lines}\n\n💰 Итого: ${total} MDL`;
+}
+async function sendTelegram(text){
+  const {botToken, chatId} = settings;
+  if(!botToken || !chatId){ showToast('Настройте Telegram в ⚙️','error'); return false; }
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({chat_id: chatId, text})
+    });
+    return r.ok;
+  } catch(e){ return false; }
+}
+
+// ==================== AUTO REPORTS (persistent) ====================
+function getReportState(){
+  try { return JSON.parse(localStorage.getItem('barista_report_state') || '{}'); } catch(e){ return {}; }
+}
+function setReportState(s){ localStorage.setItem('barista_report_state', JSON.stringify(s)); }
+
+setInterval(async () => {
+  if(!settings.botToken || !settings.chatId) return;
+  const now = new Date();
+  const h = now.getHours(), m = now.getMinutes();
+  const state = getReportState();
+
+  if(h === 22 && m < 2){
+    const today = now.toDateString();
+    if(state.lastEodDate !== today){
+      const ok = await sendTelegram(formatReport(`🌙 ИТОГ ДНЯ — ${now.toLocaleDateString('ru-RU')}`, today));
+      if(ok){ state.lastEodDate = today; setReportState(state); }
+    }
+  } else if(m < 2 && h % 2 === 0){
+    const key = now.toDateString() + '_h' + h;
+    if(state.lastReportKey !== key){
+      const ok = await sendTelegram(formatReport(`⏱ Отчёт ${h}:00 — ${now.toLocaleDateString('ru-RU')}`, now.toDateString()));
+      if(ok){ state.lastReportKey = key; setReportState(state); }
+    }
+  }
+  updateNextReportInfo();
+}, 30000);
+
+// ==================== VIEWS ====================
+const views = document.querySelectorAll('.view');
+const tabs = document.querySelectorAll('.tab-btn');
+function switchView(id){
+  views.forEach(v => v.classList.toggle('active', v.id === id));
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.view === id));
+  if(id === 'report-view') renderReport();
+  if(id === 'settings-view') renderSettings();
+  if(id === 'catalog-view') renderCatalog();
+}
+tabs.forEach(t => t.addEventListener('click', () => switchView(t.dataset.view)));
+
+// ==================== DATE ====================
+function updateDate(){
+  document.getElementById('date-label').textContent =
+    new Date().toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
+}
+
+// ==================== POS ====================
+function renderGroups(){
+  const groups = [...new Set(PRODUCTS.map(p => p.group))];
+  if(!groups.includes(activeGroup)) activeGroup = groups[0] || '';
+  const wrap = document.getElementById('group-tabs');
+  wrap.innerHTML = '';
+  groups.forEach(g => {
+    const btn = document.createElement('button');
+    btn.className = 'group-tab' + (g === activeGroup ? ' active' : '');
+    btn.textContent = (GROUP_ICONS[g] || '▪') + ' ' + g;
+    if(g === activeGroup) btn.style.background = GROUP_COLORS[g] || '#d4a853';
+    btn.onclick = () => { activeGroup = g; renderGroups(); renderProducts(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function renderProducts(){
+  const search = document.getElementById('search').value.toLowerCase().trim();
+  const list = search
+    ? PRODUCTS.filter(p => p.name.toLowerCase().includes(search))
+    : PRODUCTS.filter(p => p.group === activeGroup);
+  const wrap = document.getElementById('products');
+  wrap.innerHTML = '';
+
+  // Count sold today per product
+  const soldMap = {};
+  (salesHistory[new Date().toDateString()] || []).forEach(s => {
+    soldMap[s.id] = (soldMap[s.id] || 0) + s.qty;
+  });
+
+  list.forEach(p => {
+    const btn = document.createElement('button');
+    const isSel = selectedProduct && selectedProduct.id === p.id;
+    btn.className = 'product-btn' + (isSel ? ' selected' : '');
+    if(isSel) btn.style.background = GROUP_COLORS[p.group] || '#d4a853';
+    const soldQty = soldMap[p.id];
+    btn.innerHTML = `
+      ${soldQty ? `<div class="p-sold">×${soldQty}</div>` : ''}
+      <div class="p-name">${p.name}</div>
+      <div class="p-price">${p.price} <span class="p-unit">MDL</span></div>
+    `;
+    btn.onclick = () => {
+      selectedProduct = isSel ? null : p;
+      qty = 1;
+      document.getElementById('qty-input').value = 1;
+      updateAddBar();
+      renderProducts();
+    };
+    wrap.appendChild(btn);
+  });
+}
+
+function updateAddBar(){
+  const bar = document.getElementById('add-bar');
+  if(!selectedProduct){ bar.classList.remove('show'); return; }
+  bar.classList.add('show');
+  document.getElementById('add-bar-name').innerHTML = `<b>${selectedProduct.name}</b> — ${selectedProduct.price} MDL`;
+  updateConfirmBtn();
+}
+function updateConfirmBtn(){
+  if(!selectedProduct) return;
+  document.getElementById('confirm-btn').textContent = `+ ${selectedProduct.price * qty} MDL`;
+}
+function updateRevenue(){
+  const badge = document.getElementById('revenue-badge');
+  badge.textContent = getTotal(new Date().toDateString()) + ' MDL';
+  badge.classList.add('bump');
+  setTimeout(() => badge.classList.remove('bump'), 300);
+}
+
+// QTY CONTROLS
+document.getElementById('qty-minus').onclick = () => { qty = Math.max(1, qty-1); document.getElementById('qty-input').value = qty; updateConfirmBtn(); };
+document.getElementById('qty-plus').onclick = () => { qty++; document.getElementById('qty-input').value = qty; updateConfirmBtn(); };
+document.getElementById('qty-input').oninput = e => { qty = Math.max(1, parseInt(e.target.value)||1); updateConfirmBtn(); };
+
+document.getElementById('confirm-btn').onclick = () => {
+  if(!selectedProduct) return;
+  addSale({id: selectedProduct.id, name: selectedProduct.name, price: selectedProduct.price, qty: Number(qty)});
+  showToast(`✓ ${selectedProduct.name} × ${qty}`);
+  selectedProduct = null;
+  qty = 1;
+  document.getElementById('qty-input').value = 1;
+  updateAddBar();
+  updateRevenue();
+  renderProducts();
+};
+
+document.getElementById('search').oninput = () => { renderProducts(); };
+
+// ==================== REPORT ====================
+function getSortedDays(){
+  return Object.keys(salesHistory)
+    .filter(d => (salesHistory[d] || []).length > 0)
+    .sort((a,b) => new Date(b) - new Date(a))
+    .slice(0, 14);
+}
+
+function renderDaySelector(){
+  const days = getSortedDays();
+  const today = new Date().toDateString();
+  if(!days.includes(today) && (salesHistory[today] || []).length === 0){
+    // ensure today shown even if empty
+  }
+  const allDays = [today, ...days.filter(d => d !== today)];
+  const wrap = document.getElementById('day-selector');
+  wrap.innerHTML = '';
+  const shownDays = [...new Set(allDays)].slice(0,14);
+  shownDays.forEach(d => {
+    const btn = document.createElement('button');
+    btn.className = 'day-tab' + (d === viewingDay ? ' active' : '');
+    const dateObj = new Date(d);
+    const isToday = d === today;
+    btn.textContent = isToday ? 'Сегодня' : dateObj.toLocaleDateString('ru-RU', {day:'numeric', month:'short'});
+    btn.onclick = () => { viewingDay = d; renderReport(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function renderReport(){
+  renderDaySelector();
+  const agg = getAgg(viewingDay);
+  const list = document.getElementById('sales-list');
+  const empty = document.getElementById('empty-msg');
+  const totalBar = document.getElementById('total-bar');
+  const actions = document.getElementById('report-actions');
+  const sub = document.getElementById('report-sub');
+
+  const dateObj = new Date(viewingDay);
+  const isToday = viewingDay === new Date().toDateString();
+  sub.textContent = isToday
+    ? 'Сегодня · ' + dateObj.toLocaleDateString('ru-RU', {day:'numeric', month:'long'})
+    : dateObj.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
+
+  list.innerHTML = '';
+  if(!agg.length){
+    empty.style.display = 'block';
+    totalBar.style.display = 'none';
+    actions.style.display = 'none';
+    renderHistoryChart();
+    return;
+  }
+  empty.style.display = 'none';
+  totalBar.style.display = 'flex';
+  actions.style.display = 'flex';
+
+  agg.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'sale-row';
+    row.innerHTML = `
+      <div class="s-info">
+        <div class="s-name">${s.name}</div>
+        <div class="s-price">${s.price} MDL за шт.</div>
+      </div>
+      <div class="s-total">
+        <div class="s-total-amount">${s.price * s.qty} MDL</div>
+        <div class="s-qty">× ${s.qty}</div>
+      </div>
+      <div class="s-edit-btns">
+        <button class="s-minus" title="−1">−</button>
+        <button class="s-delete" title="Удалить">🗑</button>
+      </div>
+    `;
+    row.querySelector('.s-minus').onclick = () => removeOneFromDay(s.id);
+    row.querySelector('.s-delete').onclick = () => {
+      showModal(`Удалить «${s.name}»?`, `Будет удалено ${s.qty} шт. на ${s.price*s.qty} MDL.`, 'Удалить', () => removeAllFromDay(s.id));
+    };
+    list.appendChild(row);
+  });
+
+  document.getElementById('total-amount').textContent = getTotal(viewingDay) + ' MDL';
+  renderHistoryChart();
+}
+
+function removeOneFromDay(productId){
+  const arr = [...(salesHistory[viewingDay] || [])];
+  // find last entry with this id and remove 1 qty
+  let found = false;
+  for(let i = arr.length-1; i >= 0; i--){
+    if(arr[i].id === productId){
+      if(arr[i].qty > 1){ arr[i] = {...arr[i], qty: arr[i].qty - 1}; }
+      else { arr.splice(i,1); }
+      found = true;
+      break;
+    }
+  }
+  if(found){
+    salesHistory[viewingDay] = arr;
+    saveSalesHistory();
+    updateRevenue();
+    renderReport();
+  }
+}
+
+function removeAllFromDay(productId){
+  salesHistory[viewingDay] = (salesHistory[viewingDay] || []).filter(s => s.id !== productId);
+  saveSalesHistory();
+  updateRevenue();
+  renderReport();
+  showToast('Удалено', 'info');
+}
+
+function renderHistoryChart(){
+  const days = getSortedDays().reverse(); // oldest first
+  if(days.length < 2){ document.getElementById('history-bars').innerHTML = '<div style="color:var(--muted);font-size:12px;">Мало данных для графика</div>'; return; }
+  const totals = days.map(d => getTotal(d));
+  const max = Math.max(...totals, 1);
+  const today = new Date().toDateString();
+  const wrap = document.getElementById('history-bars');
+  wrap.innerHTML = '';
+  days.forEach((d, i) => {
+    const dateObj = new Date(d);
+    const pct = Math.max(4, (totals[i] / max) * 100);
+    const isToday = d === today;
+    const div = document.createElement('div');
+    div.className = 'h-bar-wrap';
+    div.innerHTML = `
+      <div class="h-bar${isToday?' today':''}" style="height:${pct}%" title="${totals[i]} MDL"></div>
+      <div class="h-bar-label">${isToday?'сег':dateObj.toLocaleDateString('ru-RU',{day:'numeric'})}</div>
+      <div class="h-bar-amt">${totals[i]>0?totals[i]:'—'}</div>
+    `;
+    wrap.appendChild(div);
+  });
+}
+
+document.getElementById('send-btn').onclick = async () => {
+  const now = new Date();
+  const label = `📊 Отчёт — ${now.toLocaleDateString('ru-RU')} ${now.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}`;
+  const ok = await sendTelegram(formatReport(label, viewingDay));
+  showToast(ok ? 'Отправлено в Telegram ✓' : 'Ошибка отправки', ok ? 'success' : 'error');
+};
+
+document.getElementById('clear-btn').onclick = () => {
+  showModal(
+    `Сбросить продажи за ${viewingDay === new Date().toDateString() ? 'сегодня' : new Date(viewingDay).toLocaleDateString('ru-RU')}?`,
+    'Это действие нельзя отменить.',
+    'Сбросить',
+    () => {
+      salesHistory[viewingDay] = [];
+      saveSalesHistory();
+      updateRevenue();
+      renderReport();
+      showToast('Сброшено', 'info');
+    }
+  );
+};
+
+// ==================== CATALOG ====================
+function renderCatalog(){
+  const groups = [...new Set(PRODUCTS.map(p => p.group))];
+  // populate new-group select
+  const sel = document.getElementById('new-group');
+  sel.innerHTML = groups.map(g => `<option value="${g}">${g}</option>`).join('') +
+    `<option value="__new__">+ Новая группа...</option>`;
+
+  const wrap = document.getElementById('catalog-list');
+  wrap.innerHTML = '';
+  groups.forEach(g => {
+    const items = PRODUCTS.filter(p => p.group === g);
+    const section = document.createElement('div');
+    section.className = 'catalog-group';
+    section.innerHTML = `<div class="catalog-group-title"><span>${GROUP_ICONS[g]||'▪'}</span> ${g} <span style="color:var(--muted);font-size:11px;font-weight:600">(${items.length})</span></div>`;
+    items.forEach(p => {
+      const item = document.createElement('div');
+      item.className = 'catalog-item';
+      item.id = 'ci-' + p.id;
+      item.innerHTML = `
+        <div class="ci-name">${p.name}</div>
+        <div class="ci-price">${p.price} MDL</div>
+        <button class="ci-edit-btn" onclick="toggleEditProduct(${p.id})">✏️</button>
+        <button class="ci-del-btn" onclick="deleteProduct(${p.id},'${p.name.replace(/'/g,"\\'")}')">🗑</button>
+        <div class="ci-edit-inputs">
+          <input id="ci-name-${p.id}" value="${p.name.replace(/"/g,'&quot;')}" placeholder="Название"/>
+          <input id="ci-price-${p.id}" type="number" value="${p.price}" placeholder="Цена"/>
+          <button class="ci-save-btn" onclick="saveEditProduct(${p.id})">Сохранить</button>
+        </div>
+      `;
+      section.appendChild(item);
+    });
+    wrap.appendChild(section);
+  });
+}
+
+function toggleEditProduct(id){
+  const el = document.getElementById('ci-' + id);
+  el.classList.toggle('editing');
+}
+
+function saveEditProduct(id){
+  const nameEl = document.getElementById('ci-name-' + id);
+  const priceEl = document.getElementById('ci-price-' + id);
+  const newName = nameEl.value.trim();
+  const newPrice = parseInt(priceEl.value);
+  if(!newName || !newPrice || newPrice < 1){ showToast('Проверьте данные','error'); return; }
+  const idx = PRODUCTS.findIndex(p => p.id === id);
+  if(idx === -1) return;
+  PRODUCTS[idx].name = newName;
+  PRODUCTS[idx].price = newPrice;
+  saveProducts();
+  showToast('Сохранено ✓');
+  renderCatalog();
+  renderGroups();
+  renderProducts();
+}
+
+function deleteProduct(id, name){
+  showModal(`Удалить «${name}»?`, 'Товар будет удалён из каталога. Продажи не пострадают.', 'Удалить', () => {
+    PRODUCTS = PRODUCTS.filter(p => p.id !== id);
+    saveProducts();
+    showToast('Удалено', 'info');
+    renderCatalog();
+    renderGroups();
+    renderProducts();
+  });
+}
+
+document.getElementById('add-product-btn').onclick = () => {
+  const name = document.getElementById('new-name').value.trim();
+  let price = parseInt(document.getElementById('new-price').value);
+  let group = document.getElementById('new-group').value;
+  if(!name || !price || price < 1){ showToast('Заполните название и цену','error'); return; }
+  if(group === '__new__'){
+    const ng = prompt('Введите название новой группы:');
+    if(!ng || !ng.trim()){ showToast('Группа не указана','warn'); return; }
+    group = ng.trim();
+  }
+  const newProduct = {id: nextProductId++, name, price, group};
+  PRODUCTS.push(newProduct);
+  saveProducts();
+  saveNextId();
+  document.getElementById('new-name').value = '';
+  document.getElementById('new-price').value = '';
+  showToast(`«${name}» добавлен ✓`);
+  renderCatalog();
+  renderGroups();
+  renderProducts();
+};
+
+// ==================== SETTINGS ====================
+function renderSettings(){
+  document.getElementById('bot-token').value = settings.botToken || '';
+  document.getElementById('chat-id').value = settings.chatId || '';
+  updateNextReportInfo();
+}
+function updateNextReportInfo(){
+  const now = new Date();
+  const h = now.getHours();
+  let nextH;
+  if(h<8)nextH=8;else if(h<10)nextH=10;else if(h<12)nextH=12;
+  else if(h<14)nextH=14;else if(h<16)nextH=16;else if(h<18)nextH=18;
+  else if(h<20)nextH=20;else if(h<22)nextH=22;else nextH=8;
+  const label = nextH === 22 ? 'итог дня' : 'промежуточный отчёт';
+  document.getElementById('next-report-info').innerHTML =
+    `Следующий отчёт: <b>${nextH}:00</b> (${label})`;
+}
+
+document.getElementById('save-btn').onclick = () => {
+  settings.botToken = document.getElementById('bot-token').value.trim();
+  settings.chatId = document.getElementById('chat-id').value.trim();
+  saveSettings();
+  showToast('Настройки сохранены ✓');
+};
+document.getElementById('send-now-btn').onclick = async () => {
+  settings.botToken = document.getElementById('bot-token').value.trim();
+  settings.chatId = document.getElementById('chat-id').value.trim();
+  saveSettings();
+  const now = new Date();
+  const label = `📊 Отчёт — ${now.toLocaleDateString('ru-RU')} ${now.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}`;
+  const ok = await sendTelegram(formatReport(label, new Date().toDateString()));
+  showToast(ok ? 'Отправлено ✓' : 'Ошибка отправки', ok ? 'success' : 'error');
+};
+document.getElementById('go-pos-btn').onclick = () => switchView('pos-view');
+
+// ==================== EXPORT ====================
+document.getElementById('export-json-btn').onclick = () => {
+  const data = { exportDate: new Date().toISOString(), salesHistory, products: PRODUCTS };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `barista-export-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  showToast('JSON экспортирован ✓');
+};
+
+document.getElementById('export-csv-btn').onclick = () => {
+  let csv = 'Дата,Товар,Количество,Цена,Сумма\n';
+  Object.entries(salesHistory).forEach(([day, items]) => {
+    const agg = {};
+    items.forEach(s => { if(agg[s.id]) agg[s.id].qty+=s.qty; else agg[s.id]={...s}; });
+    Object.values(agg).forEach(s => {
+      csv += `"${day}","${s.name}",${s.qty},${s.price},${s.price*s.qty}\n`;
+    });
+  });
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `barista-export-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('CSV экспортирован ✓');
+};
+
+// ==================== INIT ====================
+loadData();
+updateDate();
+renderGroups();
+renderProducts();
+updateRevenue();
+setInterval(updateDate, 60000);
+</script>
+</body>
+</html>
